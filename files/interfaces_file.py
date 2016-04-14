@@ -80,13 +80,38 @@ dest:
 ifaces:
     description: interfaces dictionary
     returned: success
-    type: dict
-    sample: ifaces:
-              eth0:
-                address_family: inet,
-                method: manual
-                name: eth0
-                mtu: 1500
+    type: dictionary
+    contains:
+      ifaces:
+        description: interface dictionary
+        returned: success
+        type: dictionary
+        contains:
+          eth0:
+            description: Name of the interface
+            returned: success
+            type: dictionary
+            contains:
+              address_family: 
+                description: interface address family
+                returned: success
+                type: string
+                sample: "inet"
+              method:
+                description: interface method
+                returned: success
+                type: string
+                sample: "manual"
+              name:
+                description: interface name
+                returned: success
+                type: string
+                sample: "eth0"
+              mtu: 
+                description: other options, all velues returned as strings
+                returned: success
+                type: string
+                sample: "1500"
 ...
 '''
 
