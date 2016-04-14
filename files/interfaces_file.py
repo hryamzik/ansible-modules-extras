@@ -50,7 +50,7 @@ options:
 
 notes:
    - If option is defined multiple times last one will be updated but all will be deleted in case of an absent state
-   - "\"pre-up\", \"up\", \"down\" and \"post-up\" options are not currently handled properly and will be treated as mentioned earlier"
+   - '"pre-up", "up", "down" and "post-up" options are not currently handled properly and will be treated as mentioned earlier'
 requirements: []
 author: "Roman Belyakovsky (@hryamzik)"
 '''
@@ -77,8 +77,8 @@ def optionDict(line, iface, option, value):
     return {'line': line, 'iface': iface, 'option': option, 'value': value, 'line_type':'option' }
 
 def read_interfaces_file(module, filename):
-    with open(filename) as f:
-        return read_interfaces_lines(module, f)
+    f = open(filename, 'r')
+    return read_interfaces_lines(module, f)
 
 def read_interfaces_lines(module, line_strings):
     lines = []
