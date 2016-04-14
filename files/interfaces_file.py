@@ -102,11 +102,6 @@ ifaces:
                 returned: success
                 type: string
                 sample: "manual"
-              name:
-                description: interface name
-                returned: success
-                type: string
-                sample: "eth0"
               mtu: 
                 description: other options, all velues returned as strings
                 returned: success
@@ -129,6 +124,7 @@ EXAMPLES = '''
 
 import os
 import tempfile
+import re
 
 def lineDict(line):
     return {'line': line, 'line_type':'unknown'}
@@ -172,7 +168,6 @@ def read_interfaces_lines(module, line_strings):
                 # TODO: put line and count parameters
                 return None, None;
             
-            currif['name']           = iface_name
             currif['address_family'] = address_family_name
             currif['method']         = method_name
             
@@ -197,7 +192,7 @@ def read_interfaces_lines(module, line_strings):
                 # TODO: if option_name not in ["pre-up", "up","down","post-up"]:
                 # TODO: if option_name in currif.options
                 value = " ".join(words[1:])
-                lines.append(optionDict(line,currif['name'],option_name, value))
+                lines.append(optionDict(line,iface_name,option_name, value))
                 currif[option_name] = value
             elif currently_processing == "MAPPING":
                 lines.append(lineDict(line))
@@ -249,8 +244,10 @@ def setInterfaceOption(module, lines, iface, option, raw_value, state):
                 old_line = target_option['line']
                 old_value = target_option['value']
                 prefix_start = old_line.find(option)
-                start = old_line.find(old_value, prefix_start + len(option) - 1 )
-                line = old_line[:start]+old_line[start:start+len(old_value)].replace(old_value,value)+old_line[start+len(old_value):]
+                old_value_position = re.search("\s+".join(old_value.split()),old_line)
+                start = old_value_position.start()
+                end   = old_value_position.end()
+                line = old_line[:start] + value + old_line[end:]
                 index = len(lines) - lines[::-1].index(target_option) - 1
                 lines[index] = optionDict(line, iface, option, value)
     elif state == "absent":
@@ -275,7 +272,7 @@ def main():
     module = AnsibleModule(
         argument_spec = dict(
             dest      = dict(default='/etc/network/interfaces',required=False),
-            iface = dict(required=False),
+            iface     = dict(required=False),
             option    = dict(required=False),
             value     = dict(required=False),
             backup    = dict(default='no', type='bool'),
@@ -287,11 +284,12 @@ def main():
     
     dest = os.path.expanduser(module.params['dest'])
 
-    iface = module.params['iface']
-    option    = module.params['option'   ]
-    value     = module.params['value'    ]
-    backup    = module.params['backup'   ]
-    state     = module.params['state'    ]
+    iface  = module.params['iface' ]
+    option = module.params['option']
+    value  = module.params['value' ]
+    backup = module.params['backup']
+    state  = module.params['state' ]
+
     
     if option != None and iface == None:
         module.fail_json(msg="Inteface must be set if option is defined")
