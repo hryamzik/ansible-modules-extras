@@ -50,7 +50,7 @@ options:
 
 notes:
    - If option is defined multiple times last one will be updated but all will be deleted in case of an absent state
-   - "pre-up", "up", "down" and "post-up" options are not currently handled properly and will be treated as mentioned earlier
+   - "\"pre-up\", \"up\", \"down\" and \"post-up\" options are not currently handled properly and will be treated as mentioned earlier"
 requirements: []
 author: "Roman Belyakovsky (@hryamzik)"
 '''
@@ -183,7 +183,7 @@ def setInterfaceOption(module, lines, iface, option, raw_value, state):
             lines.insert(index, option_dict)
         else:
             # if more than one option found edit the last one
-            if target_options[-1]['value'] != value:
+            if cmp(target_options[-1]['value'].split(), value.split()) != 0:
                 changed = True
                 target_option = target_options[-1]
                 old_line = target_option['line']
