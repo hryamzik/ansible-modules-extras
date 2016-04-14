@@ -3,6 +3,21 @@
 #
 # (c) 2016, Roman Belyakovsky <ihryamzik () gmail.com>
 #
+# This file is part of Ansible
+#
+# Ansible is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# Ansible is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Ansible.  If not, see <http://www.gnu.org/licenses/>.
+#
 
 DOCUMENTATION = '''
 ---
@@ -13,6 +28,7 @@ description:
      - Manage (add, remove, change) individual interface options in an interfaces-style file without having
        to manage the file as a whole with, say, M(template) or M(assemble). Interface has to be presented in a file.
      - Read information about interfaces from interfaces-styled files
+version_added: "2.1"
 options:
   dest:
     description:
@@ -53,6 +69,25 @@ notes:
    - '"pre-up", "up", "down" and "post-up" options are not currently handled properly and will be treated as mentioned earlier'
 requirements: []
 author: "Roman Belyakovsky (@hryamzik)"
+'''
+
+RETURN = '''
+dest:
+    description: destination file/path
+    returned: success
+    type: string
+    sample: "/etc/network/interfaces"
+ifaces:
+    description: interfaces dictionary
+    returned: success
+    type: dict
+    sample: ifaces:
+              eth0:
+                address_family: inet,
+                method: manual
+                name: eth0
+                mtu: 1500
+...
 '''
 
 EXAMPLES = '''
