@@ -236,7 +236,7 @@ def setInterfaceOption(module, lines, iface, option, raw_value, state):
             last_line_dict = iface_lines[-1]
             last_line = last_line_dict['line']
             prefix_start = last_line.find(last_line.split()[0])
-            suffix_start = last_line.find(last_line.split()[-1]) + len(last_line.split()[-1])
+            suffix_start = last_line.rfind(last_line.split()[-1]) + len(last_line.split()[-1])
             line = last_line[:prefix_start]
         
             if len (iface_options) < 1:
