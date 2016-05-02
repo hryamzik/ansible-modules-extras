@@ -47,7 +47,7 @@ options:
     default: null
   value:
     description:
-      - Value of option, required for value changes
+      - If I(option) is not presented for the I(interface) and I(state) is C(present) option will be added. If I(option) already exists and is not C(pre-up), C(up), C(post-up) or C(down), it's value will be updated. C(pre-up), C(up), C(post-up) and C(down) options can't be updated, only adding new options, removing existing ones or cleaning the whole option set are supported
     required: false
     default: null
   backup:
@@ -66,7 +66,6 @@ options:
 
 notes:
    - If option is defined multiple times last one will be updated but all will be deleted in case of an absent state
-   - '"pre-up", "up", "down" and "post-up" options are not currently handled properly and will be treated as mentioned earlier'
 requirements: []
 author: "Roman Belyakovsky (@hryamzik)"
 '''
@@ -107,6 +106,34 @@ ifaces:
                 returned: success
                 type: string
                 sample: "1500"
+              pre-up:
+                description: list of C(pre-up) scripts
+                returned: success
+                type: list
+                sample:
+                  - "route add -net 10.10.10.0/24 gw 10.10.10.1 dev eth1"
+                  - "route add -net 10.10.11.0/24 gw 10.10.11.1 dev eth2"
+              up:
+                description: list of C(up) scripts
+                returned: success
+                type: list
+                sample:
+                  - "route add -net 10.10.10.0/24 gw 10.10.10.1 dev eth1"
+                  - "route add -net 10.10.11.0/24 gw 10.10.11.1 dev eth2"
+              post-up:
+                description: list of C(post-up) scripts
+                returned: success
+                type: list
+                sample:
+                  - "route add -net 10.10.10.0/24 gw 10.10.10.1 dev eth1"
+                  - "route add -net 10.10.11.0/24 gw 10.10.11.1 dev eth2"
+              down:
+                description: list of C(down) scripts
+                returned: success
+                type: list
+                sample:
+                  - "route del -net 10.10.10.0/24 gw 10.10.10.1 dev eth1"
+                  - "route del -net 10.10.11.0/24 gw 10.10.11.1 dev eth2"
 ...
 '''
 
@@ -172,7 +199,12 @@ def read_interfaces_lines(module, line_strings):
             lines.append(lineDict(line))
             currently_processing = "NONE"
         elif words[0] == "iface":
-            currif = {}
+            currif = {
+                "pre-up":  [],
+                "up":      [],
+                "down":    [],
+                "post-up": []
+            }
             iface_name, address_family_name, method_name =  words[1:4]
             if len(words) != 4:
                 module.fail_json(msg="Incorrect number of parameters (%d) in line %d, must be exectly 3" % (len(words), i))
@@ -200,11 +232,13 @@ def read_interfaces_lines(module, line_strings):
         else:
             if currently_processing == "IFACE":
                 option_name = words[0]
-                # TODO: if option_name not in ["pre-up", "up","down","post-up"]:
                 # TODO: if option_name in currif.options
                 value = getValueFromLine(line)
-                lines.append(optionDict(line,iface_name,option_name, value))
-                currif[option_name] = value
+                lines.append(optionDict(line,iface_name,option_name,value))
+                if option_name in ["pre-up","up","down","post-up"]:
+                    currif[option_name].append(value)
+                else:
+                    currif[option_name] = value
             elif currently_processing == "MAPPING":
                 lines.append(lineDict(line))
             elif currently_processing == "NONE":
@@ -234,43 +268,59 @@ def setInterfaceOption(module, lines, iface, option, raw_value, state):
             changed = True
             # add new option
             last_line_dict = iface_lines[-1]
-            last_line = last_line_dict['line']
-            prefix_start = last_line.find(last_line.split()[0])
-            suffix_start = last_line.rfind(last_line.split()[-1]) + len(last_line.split()[-1])
-            line = last_line[:prefix_start]
-        
-            if len (iface_options) < 1:
-                # interface has no options, ident
-                line += "    "
-            line += "%s %s" % (option, value)
-            line += last_line[suffix_start:]
-            option_dict = optionDict(line, iface, option, value)
-            index = len(lines) - lines[::-1].index(last_line_dict)
-            lines.insert(index, option_dict)
+            lines = addOptionAfterLine(option, value, iface, lines, last_line_dict, iface_options)
         else:
-            # if more than one option found edit the last one
-            if target_options[-1]['value'] != value:
-                changed = True
-                target_option = target_options[-1]
-                old_line = target_option['line']
-                old_value = target_option['value']
-                prefix_start = old_line.find(option)
-                optionLen = len(option)
-                old_value_position = re.search("\s+".join(old_value.split()),old_line[prefix_start + optionLen:])
-                start = old_value_position.start() + prefix_start + optionLen
-                end   = old_value_position.end() + prefix_start + optionLen
-                line = old_line[:start] + value + old_line[end:]
-                index = len(lines) - lines[::-1].index(target_option) - 1
-                lines[index] = optionDict(line, iface, option, value)
+            if option in ["pre-up","up","down","post-up"]:
+                if len(filter(lambda i: i['value'] == value, target_options)) < 1:
+                    changed = True
+                    lines = addOptionAfterLine(option, value, iface, lines, target_options[-1], iface_options)
+            else:
+                # if more than one option found edit the last one
+                if target_options[-1]['value'] != value:
+                    changed = True
+                    target_option = target_options[-1]
+                    old_line = target_option['line']
+                    old_value = target_option['value']
+                    prefix_start = old_line.find(option)
+                    optionLen = len(option)
+                    old_value_position = re.search("\s+".join(old_value.split()),old_line[prefix_start + optionLen:])
+                    start = old_value_position.start() + prefix_start + optionLen
+                    end   = old_value_position.end() + prefix_start + optionLen
+                    line = old_line[:start] + value + old_line[end:]
+                    index = len(lines) - lines[::-1].index(target_option) - 1
+                    lines[index] = optionDict(line, iface, option, value)
     elif state == "absent":
         if len (target_options) >= 1:
-            changed = True
-            lines = filter(lambda l: l != target_options[0], lines)
+            if option in ["pre-up","up","down","post-up"] and value != None and value != "None":
+                for target_option in filter(lambda i: i['value'] == value, target_options):
+                    changed = True
+                    lines = filter(lambda l: l != target_option, lines)
+            else:
+                changed = True
+                for target_option in target_options:
+                    lines = filter(lambda l: l != target_option, lines)
     else:
-        module.fail_json(msg="Error: unsupported state %s, has to be ither present or absent" % state)
+        module.fail_json(msg="Error: unsupported state %s, has to be either present or absent" % state)
     
     return changed, lines
     pass
+
+def addOptionAfterLine(option, value, iface, lines, last_line_dict, iface_options):
+    last_line = last_line_dict['line']
+    prefix_start = last_line.find(last_line.split()[0])
+    suffix_start = last_line.rfind(last_line.split()[-1]) + len(last_line.split()[-1])
+    prefix = last_line[:prefix_start]
+
+    if len (iface_options) < 1:
+        # interface has no options, ident
+        prefix += "    "
+    
+    line = prefix + "%s %s" % (option, value) + last_line[suffix_start:]
+    option_dict = optionDict(line, iface, option, value)
+    index = len(lines) - lines[::-1].index(last_line_dict)
+    lines.insert(index, option_dict)
+    return lines
+    
 
 def write_changes(module,lines,dest):
 
@@ -302,7 +352,6 @@ def main():
     backup = module.params['backup']
     state  = module.params['state' ]
 
-    
     if option != None and iface == None:
         module.fail_json(msg="Inteface must be set if option is defined")
     
