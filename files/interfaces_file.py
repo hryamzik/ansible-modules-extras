@@ -28,7 +28,7 @@ description:
      - Manage (add, remove, change) individual interface options in an interfaces-style file without having
        to manage the file as a whole with, say, M(template) or M(assemble). Interface has to be presented in a file.
      - Read information about interfaces from interfaces-styled files
-version_added: "2.1"
+version_added: "2.2"
 options:
   dest:
     description:
