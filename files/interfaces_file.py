@@ -132,6 +132,17 @@ def lineDict(line):
 def optionDict(line, iface, option, value):
     return {'line': line, 'iface': iface, 'option': option, 'value': value, 'line_type':'option' }
 
+def getValueFromLine(s):
+    spaceRe = re.compile('\s+')
+    for m in spaceRe.finditer(s):
+        pass
+    valueEnd = m.start()
+    option = s.split()[0]
+    optionStart = s.find(option)
+    optionLen = len(option)
+    valueStart = re.search('\s',s[optionLen + optionStart:]).end() + optionLen + optionStart
+    return s[valueStart:valueEnd]
+
 def read_interfaces_file(module, filename):
     f = open(filename, 'r')
     return read_interfaces_lines(module, f)
@@ -191,7 +202,7 @@ def read_interfaces_lines(module, line_strings):
                 option_name = words[0]
                 # TODO: if option_name not in ["pre-up", "up","down","post-up"]:
                 # TODO: if option_name in currif.options
-                value = " ".join(words[1:])
+                value = getValueFromLine(line)
                 lines.append(optionDict(line,iface_name,option_name, value))
                 currif[option_name] = value
             elif currently_processing == "MAPPING":
@@ -238,15 +249,16 @@ def setInterfaceOption(module, lines, iface, option, raw_value, state):
             lines.insert(index, option_dict)
         else:
             # if more than one option found edit the last one
-            if cmp(target_options[-1]['value'].split(), value.split()) != 0:
+            if target_options[-1]['value'] != value:
                 changed = True
                 target_option = target_options[-1]
                 old_line = target_option['line']
                 old_value = target_option['value']
                 prefix_start = old_line.find(option)
-                old_value_position = re.search("\s+".join(old_value.split()),old_line)
-                start = old_value_position.start()
-                end   = old_value_position.end()
+                optionLen = len(option)
+                old_value_position = re.search("\s+".join(old_value.split()),old_line[prefix_start + optionLen:])
+                start = old_value_position.start() + prefix_start + optionLen
+                end   = old_value_position.end() + prefix_start + optionLen
                 line = old_line[:start] + value + old_line[end:]
                 index = len(lines) - lines[::-1].index(target_option) - 1
                 lines[index] = optionDict(line, iface, option, value)
